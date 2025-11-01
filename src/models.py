@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import String, Boolean
+from sqlalchemy import String, Boolean, Integer, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 db = SQLAlchemy()
@@ -52,11 +52,15 @@ class Planet(db.Model):
 class Favorite(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(
-        db.Integer, db.ForeignKey('user.id'), nullable=False)
+        Integer, ForeignKey('user.id'), nullable=False)
     planet_id: Mapped[int] = mapped_column(
-        db.Integer, db.ForeignKey('planet.id'), nullable=True)
+        Integer, ForeignKey('planet.id'), nullable=True)
     person_id: Mapped[int] = mapped_column(
-        db.Integer, db.ForeignKey('person.id'), nullable=True)
+        Integer, ForeignKey('person.id'), nullable=True)
+    __table_args__ = (
+        UniqueConstraint('user_id', 'planet_id', name='uix_user_planet'),
+        UniqueConstraint('user_id', 'person_id', name='uix_user_person'),
+    )
 
     def serialize(self):
         return {

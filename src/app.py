@@ -9,6 +9,7 @@ from flask_cors import CORS
 from src.utils import APIException, generate_sitemap
 from src.admin import setup_admin
 from src.models import db, User, Person, Planet, Favorite
+from sqlalchemy.exc import IntegrityError
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
@@ -117,17 +118,26 @@ def get_user_favorites():
 def add_favorite_planet(planet_id):
     user = get_current_user()
     if user is None:
-        return jsonify({"message": "Current user not found"}), 404
+        return jsonify({"mensaje": "Usuario no encontrado"}), 404
     planet = db.session.get(Planet, planet_id)
     if planet is None:
         return jsonify({"mensaje": "Planeta no encontrado"}), 404
     existing = Favorite.query.filter_by(
         user_id=user.id, planet_id=planet_id).first()
     if existing:
-        return jsonify({"mensaje": "Agregado en favoritos"}), 400
+        return jsonify(existing.serialize()), 200
     fav = Favorite(user_id=user.id, planet_id=planet_id)
     db.session.add(fav)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+
+        existing = Favorite.query.filter_by(
+            user_id=user.id, planet_id=planet_id).first()
+        if existing:
+            return jsonify(existing.serialize()), 200
+        return jsonify({"mensaje": "Conflicto al crear favorito"}), 409
     return jsonify(fav.serialize()), 201
 
 
@@ -142,10 +152,18 @@ def add_favorite_person(people_id):
     existing = Favorite.query.filter_by(
         user_id=user.id, person_id=people_id).first()
     if existing:
-        return jsonify({"mensaje": "Agregado en favoritos"}), 400
+        return jsonify(existing.serialize()), 200
     fav = Favorite(user_id=user.id, person_id=people_id)
     db.session.add(fav)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        existing = Favorite.query.filter_by(
+            user_id=user.id, person_id=people_id).first()
+        if existing:
+            return jsonify(existing.serialize()), 200
+        return jsonify({"mensaje": "Conflicto al crear favorito"}), 409
     return jsonify(fav.serialize()), 201
 
 
